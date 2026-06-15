@@ -23,6 +23,7 @@ import {
   SheetTitle,
   SheetFooter,
 } from "../../components/ui/sheet";
+import { StatusBadge } from "../../components/ui/StatusBadge";
 
 // Advanced filter state shape
 interface AdvancedFilters {
@@ -135,23 +136,82 @@ export function MyPR() {
     return true;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Draft":
-        return "bg-muted text-muted-foreground border-muted-foreground/30";
-      case "Waiting Approval":
-        return "bg-amber-500/10 text-amber-500 border-amber-500/30";
-      case "Approved":
-        return "bg-emerald-500/10 text-emerald-500 border-emerald-500/30";
-      case "Rejected":
-        return "bg-rose-500/10 text-rose-500 border-rose-500/30";
-      case "PO Released":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/30";
-      case "Completed":
-        return "bg-primary/10 text-primary border-primary/30";
-      default:
-        return "bg-muted text-muted-foreground border-muted-foreground/30";
-    }
+  const handleExportPDF = (pr: PurchaseRequest) => {
+    const total = pr.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>PR ${pr.id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 32px; color: #111; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            .meta { color: #666; font-size: 12px; margin-bottom: 24px; }
+            .section-title { font-size: 13px; font-weight: bold; margin: 20px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+            .field label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+            .field span { font-size: 13px; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th { background: #f5f5f5; text-align: left; padding: 8px 12px; font-size: 11px; color: #555; }
+            td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+            .total-row td { font-weight: bold; background: #f9f9f9; }
+            .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: bold; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <h1>Purchase Requisition — ${pr.id}</h1>
+          <div class="meta">Generated on ${new Date().toLocaleString()} • Status: <span class="badge">${pr.status}</span></div>
+          
+          <div class="section-title">General Information</div>
+          <div class="grid">
+            <div class="field"><label>Title</label><span>${pr.title}</span></div>
+            <div class="field"><label>Department</label><span>${pr.department}</span></div>
+            <div class="field"><label>Priority</label><span>${pr.priority}</span></div>
+            <div class="field"><label>Created</label><span>${new Date(pr.createdAt).toLocaleString()}</span></div>
+            <div class="field" style="grid-column: span 2"><label>Purpose</label><span>${pr.purpose || "-"}</span></div>
+          </div>
+
+          <div class="section-title">Items Requested</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Unit</th>
+                <th style="text-align:right">Est. Price</th>
+                <th style="text-align:right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pr.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity}</td>
+                  <td>${item.unit}</td>
+                  <td style="text-align:right">$${item.price.toLocaleString()}</td>
+                  <td style="text-align:right">$${(item.quantity * item.price).toLocaleString()}</td>
+                </tr>
+              `).join("")}
+              <tr class="total-row">
+                <td colspan="4" style="text-align:right">Grand Total:</td>
+                <td style="text-align:right">$${total.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          ${pr.approverComments ? `
+            <div class="section-title">Approver Comment</div>
+            <p style="font-style:italic;color:#444">"${pr.approverComments}"</p>
+          ` : ""}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 500);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -300,9 +360,7 @@ export function MyPR() {
                     </td>
                     <td className="py-4 px-6 text-muted-foreground text-xs">{pr.department}</td>
                     <td className="py-4 px-6">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(pr.status)}`}>
-                        {pr.status}
-                      </span>
+                      <StatusBadge status={pr.status} />
                     </td>
                     <td className="py-4 px-6 font-bold text-foreground">${total.toLocaleString()}</td>
                     <td className="py-4 px-6 text-muted-foreground text-xs">
@@ -352,9 +410,7 @@ export function MyPR() {
               <div key={pr.id} className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-foreground text-sm">{pr.id}</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(pr.status)}`}>
-                    {pr.status}
-                  </span>
+                  <StatusBadge status={pr.status} />
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-foreground">{pr.title}</h4>
@@ -624,9 +680,7 @@ export function MyPR() {
               <div>
                 <div className="flex items-center gap-2.5">
                   <h3 className="font-bold text-foreground text-lg">{selectedPR.id}</h3>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getStatusColor(selectedPR.status)}`}>
-                    {selectedPR.status}
-                  </span>
+                  <StatusBadge status={selectedPR.status} />
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">Submitted by {selectedPR.creator.name} ({selectedPR.creator.email})</p>
               </div>
@@ -778,6 +832,14 @@ export function MyPR() {
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-border flex justify-end gap-2 bg-sidebar/10">
+              <Button
+                variant="outline"
+                onClick={() => handleExportPDF(selectedPR)}
+                className="cursor-pointer flex items-center gap-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Export PDF
+              </Button>
               <Button variant="outline" onClick={() => setSelectedPR(null)} className="cursor-pointer">Close</Button>
               {selectedPR.status === "Draft" && (
                 <Button onClick={() => handleSubmitDraft(selectedPR.id)} className="cursor-pointer">{t("mypr.submit_approval")}</Button>

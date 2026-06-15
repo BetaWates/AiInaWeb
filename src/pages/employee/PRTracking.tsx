@@ -14,6 +14,7 @@ import {
   Info
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { StatusBadge } from "../../components/ui/StatusBadge";
 
 export function PRTracking() {
   const { purchaseRequests, currentUser } = useProcurement();
@@ -24,24 +25,7 @@ export function PRTracking() {
 
   const activePR = myPRs.find(pr => pr.id === selectedPRId);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Draft":
-        return "bg-muted text-muted-foreground border-muted-foreground/30";
-      case "Waiting Approval":
-        return "bg-amber-500/10 text-amber-500 border-amber-500/30";
-      case "Approved":
-        return "bg-emerald-500/10 text-emerald-500 border-emerald-500/30";
-      case "Rejected":
-        return "bg-rose-500/10 text-rose-500 border-rose-500/30";
-      case "PO Released":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/30";
-      case "Completed":
-        return "bg-primary/10 text-primary border-primary/30";
-      default:
-        return "bg-muted text-muted-foreground border-muted-foreground/30";
-    }
-  };
+
 
   const getTimelineSteps = (pr: PurchaseRequest) => {
     const totalAmount = pr.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
@@ -160,9 +144,7 @@ export function PRTracking() {
             <div>
               <div className="flex items-center gap-3">
                 <h3 className="text-lg font-bold text-foreground">{activePR.id}</h3>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getStatusColor(activePR.status)}`}>
-                  {activePR.status}
-                </span>
+                <StatusBadge status={activePR.status} />
               </div>
               <p className="text-xs text-muted-foreground mt-1">{activePR.title} • {activePR.department}</p>
             </div>

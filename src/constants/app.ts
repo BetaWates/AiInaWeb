@@ -24,7 +24,7 @@ export const STORAGE_KEYS = {
 export const SUPPORTED_LANGUAGES = ["EN", "ID"] as const;
 
 // Default theme
-export const DEFAULT_THEME = "dark" as const;
+export const DEFAULT_THEME = "light" as const;
 
 // PR Priority levels
 export const PR_PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;

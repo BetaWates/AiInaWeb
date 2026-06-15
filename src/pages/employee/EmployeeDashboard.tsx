@@ -12,6 +12,8 @@ import {
   TrendingUp
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { StatusBadge } from "../../components/ui/StatusBadge";
+import { timeAgo } from "../../utils";
 
 export function EmployeeDashboard() {
   const { purchaseRequests, currentUser, activityLogs } = useProcurement();
@@ -29,23 +31,7 @@ export function EmployeeDashboard() {
     .filter(log => log.userId === currentUser?.id)
     .slice(0, 5);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Draft":
-        return "bg-muted text-muted-foreground border-muted-foreground/30";
-      case "Waiting Approval":
-        return "bg-amber-500/10 text-amber-500 border-amber-500/30";
-      case "Approved":
-        return "bg-emerald-500/10 text-emerald-500 border-emerald-500/30";
-      case "Rejected":
-        return "bg-rose-500/10 text-rose-500 border-rose-500/30";
-      case "PO Released":
-      case "Completed":
-        return "bg-primary/10 text-primary border-primary/30";
-      default:
-        return "bg-muted text-muted-foreground border-muted-foreground/30";
-    }
-  };
+
 
   return (
     <div className="space-y-6">
@@ -68,7 +54,7 @@ export function EmployeeDashboard() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total PRs */}
         <div className="bg-card p-5 rounded-2xl border border-border shadow-sm flex items-center gap-4 hover:border-primary/45 transition-colors">
           <div className="p-3 bg-muted rounded-xl text-foreground">
@@ -112,6 +98,27 @@ export function EmployeeDashboard() {
             <h3 className="text-2xl font-bold mt-1 text-foreground">{rejected.length}</h3>
           </div>
         </div>
+
+        {/* Total Budget */}
+        <div className="bg-card p-5 rounded-2xl border border-border shadow-sm flex items-center gap-4 hover:border-primary/45 transition-colors">
+          <div className="p-3 bg-primary/10 text-primary rounded-xl">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Budget</p>
+            <h3 className="text-2xl font-bold mt-1 text-foreground">
+              ${myPRs.reduce(
+                (sum, pr) =>
+                  sum +
+                  pr.items.reduce(
+                    (s, item) => s + item.quantity * item.price,
+                    0
+                  ),
+                0
+              ).toLocaleString()}
+            </h3>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -145,9 +152,7 @@ export function EmployeeDashboard() {
                       <td className="py-3.5 px-5 font-semibold text-foreground">{pr.id}</td>
                       <td className="py-3.5 px-5 truncate max-w-[200px] text-foreground">{pr.title}</td>
                       <td className="py-3.5 px-5">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(pr.status)}`}>
-                          {pr.status}
-                        </span>
+                        <StatusBadge status={pr.status} />
                       </td>
                       <td className="py-3.5 px-5 font-medium text-foreground">${total.toLocaleString()}</td>
                       <td className="py-3.5 px-5 text-muted-foreground text-xs">
@@ -174,9 +179,7 @@ export function EmployeeDashboard() {
                   <div key={pr.id} className="p-4 space-y-2.5">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-foreground">{pr.id}</span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(pr.status)}`}>
-                        {pr.status}
-                      </span>
+                      <StatusBadge status={pr.status} />
                     </div>
                     <h4 className="text-sm font-medium text-foreground line-clamp-1">{pr.title}</h4>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
@@ -206,23 +209,40 @@ export function EmployeeDashboard() {
                 No recent activity logged
               </div>
             ) : (
-              <div className="space-y-4 relative before:absolute before:inset-y-1 before:left-3.5 before:w-[1px] before:bg-border">
-                {myLogs.map((log) => (
-                  <div key={log.id} className="flex gap-4 items-start relative text-xs">
-                    <div className="w-7 h-7 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 z-10 text-foreground">
-                      <TrendingUp className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <div className="flex justify-between items-center gap-2">
-                        <span className="font-bold text-foreground">{log.action}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+              <div className="space-y-6 relative before:absolute before:inset-y-1 before:left-1.5 before:w-[2px] before:bg-border">
+                {myLogs.map((log) => {
+                  let dotColor = "bg-muted-foreground";
+                  const actionLower = log.action.toLowerCase();
+                  if (actionLower.includes("create") || actionLower.includes("draft")) {
+                    dotColor = "bg-muted-foreground";
+                  } else if (actionLower.includes("submit") || actionLower.includes("login")) {
+                    dotColor = "bg-blue-500";
+                  } else if (actionLower.includes("approve")) {
+                    dotColor = "bg-emerald-500";
+                  } else if (actionLower.includes("reject")) {
+                    dotColor = "bg-rose-500";
+                  } else if (actionLower.includes("release") || actionLower.includes("po")) {
+                    dotColor = "bg-primary";
+                  }
+
+                  return (
+                    <div key={log.id} className="flex gap-4 items-start relative text-xs pl-6">
+                      {/* Colored Dot */}
+                      <div className={`w-3 h-3 rounded-full ${dotColor} border-2 border-card absolute left-0 top-1 z-10 shrink-0`} />
+                      
+                      {/* Content */}
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-bold text-foreground block">{log.action}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                            {timeAgo(log.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground leading-normal">{log.details}</p>
                       </div>
-                      <p className="text-muted-foreground leading-normal line-clamp-2">{log.details}</p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

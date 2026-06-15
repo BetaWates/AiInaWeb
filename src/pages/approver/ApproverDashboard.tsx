@@ -15,6 +15,7 @@ import {
   FileText
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { StatusBadge } from "../../components/ui/StatusBadge";
 
 export function ApproverDashboard() {
   const { purchaseRequests, updatePRStatus } = useProcurement();
@@ -50,14 +51,7 @@ export function ApproverDashboard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Waiting Approval": return "bg-amber-500/10 text-amber-500 border-amber-500/30";
-      case "Approved": return "bg-emerald-500/10 text-emerald-500 border-emerald-500/30";
-      case "Rejected": return "bg-rose-500/10 text-rose-500 border-rose-500/30";
-      default: return "bg-muted text-muted-foreground border-muted-foreground/30";
-    }
-  };
+
 
   return (
     <div className="space-y-6">
@@ -173,9 +167,7 @@ export function ApproverDashboard() {
                 <div key={pr.id} className="p-4 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-foreground text-sm">{pr.id}</span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(pr.status)}`}>
-                      {pr.status}
-                    </span>
+                    <StatusBadge status={pr.status} />
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-foreground">{pr.title}</h4>

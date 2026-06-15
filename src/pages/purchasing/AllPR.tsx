@@ -12,6 +12,7 @@ import {
   Clock
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { StatusBadge } from "../../components/ui/StatusBadge";
 
 export function AllPR() {
   const { purchaseRequests, departments } = useProcurement();
@@ -35,17 +36,7 @@ export function AllPR() {
     return matchesSearch && matchesStatus && matchesPriority && matchesDept;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Draft": return "bg-muted text-muted-foreground border-muted-foreground/30";
-      case "Waiting Approval": return "bg-amber-500/10 text-amber-500 border-amber-500/30";
-      case "Approved": return "bg-emerald-500/10 text-emerald-500 border-emerald-500/30";
-      case "Rejected": return "bg-rose-500/10 text-rose-500 border-rose-500/30";
-      case "PO Released": return "bg-blue-500/10 text-blue-500 border-blue-500/30";
-      case "Completed": return "bg-primary/10 text-primary border-primary/30";
-      default: return "bg-muted text-muted-foreground border-muted-foreground/30";
-    }
-  };
+
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -158,9 +149,7 @@ export function AllPR() {
                     <td className={`py-4 px-6 text-xs ${getPriorityColor(pr.priority)}`}>{pr.priority}</td>
                     <td className="py-4 px-6 text-muted-foreground text-xs">{pr.department}</td>
                     <td className="py-4 px-6">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(pr.status)}`}>
-                        {pr.status}
-                      </span>
+                      <StatusBadge status={pr.status} />
                     </td>
                     <td className="py-4 px-6 font-bold text-foreground">${total.toLocaleString()}</td>
                     <td className="py-4 px-6 text-right">
@@ -195,9 +184,7 @@ export function AllPR() {
               <div key={pr.id} className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-foreground text-sm">{pr.id}</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(pr.status)}`}>
-                    {pr.status}
-                  </span>
+                  <StatusBadge status={pr.status} />
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold text-foreground">{pr.title}</h4>
@@ -258,9 +245,9 @@ export function AllPR() {
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Workflow Status</span>
-                  <span className={`text-xs font-bold uppercase inline-block px-2 py-0.5 rounded-full border ${getStatusColor(selectedPR.status)} mt-0.5`}>
-                    {selectedPR.status}
-                  </span>
+                  <div className="mt-0.5">
+                    <StatusBadge status={selectedPR.status} />
+                  </div>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Submitted Time</span>

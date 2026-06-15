@@ -41,6 +41,33 @@ export function CreatePR() {
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Urgent">("Medium");
   const [approverLevel, setApproverLevel] = useState<"Direktur" | "Presiden Direktur">("Direktur");
 
+  // Four separate approver state objects
+  const [approver1, setApprover1] = useState({ name: "", remark: "", bypass: false });
+  const [approver2, setApprover2] = useState({ name: "", remark: "", bypass: false });
+  const [approver3, setApprover3] = useState({ name: "", remark: "", bypass: false });
+  const [approver4, setApprover4] = useState({ name: "", remark: "", bypass: false });
+
+  const getDestinationMessage = () => {
+    if (approver1.bypass && approver2.bypass && approver3.bypass && approver4.bypass) {
+      return (
+        <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-semibold flex items-center gap-2 mb-4">
+          <span>⚠️ All approvers bypassed — PR will go directly to Purchasing.</span>
+        </div>
+      );
+    }
+    let targetName = "";
+    if (!approver1.bypass) targetName = approver1.name;
+    else if (!approver2.bypass) targetName = approver2.name;
+    else if (!approver3.bypass) targetName = approver3.name;
+    else if (!approver4.bypass) targetName = approver4.name;
+
+    return (
+      <div className="p-3.5 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-xl text-xs font-semibold flex items-center gap-2 mb-4">
+        <span>📨 This PR will be sent to: {targetName || "(Pending Name)"}</span>
+      </div>
+    );
+  };
+
   // ── Section B: PR Request Information ─────────────────────
   const [purpose, setPurpose] = useState("");
   const [prType, setPrType] = useState<"New" | "Repeat Order" | "Repeat Order Remake">("New");
@@ -157,6 +184,12 @@ export function CreatePR() {
         purpose,
         items: finalizedItems,
         attachments,
+        approvalFlow: [
+          { level: 1, role: "Ass. Manager", ...approver1 },
+          { level: 2, role: "Manager", ...approver2 },
+          { level: 3, role: "General Manager", ...approver3 },
+          { level: 4, role: "President Director", ...approver4 },
+        ],
       },
       isSubmit
     );
@@ -315,6 +348,90 @@ export function CreatePR() {
                     </label>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PR Approval Flow Section */}
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-muted/30">
+              <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">
+                PR Approval Flow
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {getDestinationMessage()}
+              
+              <div className="space-y-4">
+                {[
+                  { id: 1, role: "Ass. Manager", state: approver1, setState: setApprover1 },
+                  { id: 2, role: "Manager", state: approver2, setState: setApprover2 },
+                  { id: 3, role: "General Manager", state: approver3, setState: setApprover3 },
+                  { id: 4, role: "President Director", state: approver4, setState: setApprover4 },
+                ].map((level) => (
+                  <div 
+                    key={level.id} 
+                    className={`p-4 rounded-xl border transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 items-center ${
+                      level.state.bypass 
+                        ? "border-muted bg-muted/20 opacity-50" 
+                        : "border-border bg-card"
+                    }`}
+                  >
+                    {/* Label */}
+                    <div className="sm:col-span-3">
+                      <span className="text-xs font-bold text-foreground block">
+                        Approver {level.id} — {level.role}
+                      </span>
+                    </div>
+
+                    {/* Name Input */}
+                    <div className="sm:col-span-4 space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Name..."
+                        value={level.state.name}
+                        disabled={level.state.bypass}
+                        onChange={(e) => level.setState(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:bg-muted/50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Remark Input */}
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Remark
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Optional remark..."
+                        value={level.state.remark}
+                        disabled={level.state.bypass}
+                        onChange={(e) => level.setState(prev => ({ ...prev, remark: e.target.value }))}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:bg-muted/50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Bypass Checkbox */}
+                    <div className="sm:col-span-2 flex items-center gap-2 pt-4 sm:pt-0">
+                      <input
+                        type="checkbox"
+                        id={`bypass-${level.id}`}
+                        checked={level.state.bypass}
+                        onChange={(e) => level.setState(prev => ({ ...prev, bypass: e.target.checked }))}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary"
+                      />
+                      <label 
+                        htmlFor={`bypass-${level.id}`}
+                        className="text-xs font-semibold text-foreground cursor-pointer select-none"
+                      >
+                        By Pass (skip this level)
+                      </label>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -660,6 +777,42 @@ export function CreatePR() {
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">{t("pr.field.approver_level")}</span>
                 <span className="text-sm font-semibold text-foreground">{approverLevel}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Review: PR Approval Flow */}
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-muted/30">
+              <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">
+                PR Approval Flow Summary
+              </h3>
+            </div>
+            <div className="p-6 space-y-3">
+              {[
+                { level: 1, role: "Ass. Manager", ...approver1 },
+                { level: 2, role: "Manager", ...approver2 },
+                { level: 3, role: "General Manager", ...approver3 },
+                { level: 4, role: "President Director", ...approver4 },
+              ].map((app) => (
+                <div key={app.level} className="flex justify-between items-center text-xs border-b border-border/40 pb-2 last:border-b-0 last:pb-0">
+                  <div>
+                    <span className="font-bold text-foreground">Level {app.level} ({app.role}): </span>
+                    <span className={app.bypass ? "text-muted-foreground italic" : "font-medium text-foreground"}>
+                      {app.bypass ? "Bypassed" : app.name || "(No Name Entered)"}
+                    </span>
+                    {app.remark && !app.bypass && (
+                      <span className="text-[10px] text-muted-foreground ml-2">({app.remark})</span>
+                    )}
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                    app.bypass 
+                      ? "bg-muted text-muted-foreground border-muted-foreground/30" 
+                      : "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                  }`}>
+                    {app.bypass ? "Bypassed" : "Active"}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 

@@ -54,6 +54,13 @@ export interface PurchaseRequest {
   poNumber?: string;
   poReleasedAt?: string;
   vendorId?: string;
+  approvalFlow?: {
+    level: number;
+    role: string;
+    name: string;
+    remark: string;
+    bypass: boolean;
+  }[];
 }
 
 // ─── Vendor ──────────────────────────────────────────────────
