@@ -22,6 +22,20 @@ export interface PRItem {
   quantity: number;
   unit: string;
   price: number;
+  // Extended fields for detail modal
+  type?: string;
+  expenseNo?: string;
+  rfiNo?: string;
+  faCode?: string;
+  rfiNoNonEfam?: string;
+  faCodeNonEfam?: string;
+  itemCode?: string;
+  supplierCode?: string;
+  supplierName?: string;
+  dueDate?: string;
+  remark?: string;
+  repeatOrder?: string;
+  repeatOrderRemark?: string;
 }
 
 export type PRStatus =

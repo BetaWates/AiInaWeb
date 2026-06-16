@@ -12,20 +12,44 @@ import {
   AlertCircle,
   Paperclip,
   CheckCircle2,
-  Send
+  Send,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../components/ui/accordion";
+import { ShieldCheck } from "lucide-react";
 
-// Extended form-only item type (frontend-only, not persisted to PRItem type)
+// Extended form-only item type (frontend-only, now includes all detail modal fields)
 interface FormItem {
+  type: string;
+  expenseNo: string;
+  rfiNo: string;
+  faCode: string;
+  rfiNoNonEfam: string;
+  faCodeNonEfam: string;
   itemCode: string;
   name: string;
   supplierCode: string;
   supplierName: string;
+  dueDate: string;
   unit: string;
   price: number;
   quantity: number;
   remark: string;
+  repeatOrder: string;
+  repeatOrderRemark: string;
 }
 
 export function CreatePR() {
@@ -41,11 +65,11 @@ export function CreatePR() {
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Urgent">("Medium");
   const [approverLevel, setApproverLevel] = useState<"Direktur" | "Presiden Direktur">("Direktur");
 
-  // Four separate approver state objects
-  const [approver1, setApprover1] = useState({ name: "", remark: "", bypass: false });
-  const [approver2, setApprover2] = useState({ name: "", remark: "", bypass: false });
-  const [approver3, setApprover3] = useState({ name: "", remark: "", bypass: false });
-  const [approver4, setApprover4] = useState({ name: "", remark: "", bypass: false });
+  // Four separate approver state objects (initialized with placeholder names)
+  const [approver1, setApprover1] = useState({ name: "Budi Santoso", remark: "", bypass: false });
+  const [approver2, setApprover2] = useState({ name: "Sarah Approver", remark: "", bypass: false });
+  const [approver3, setApprover3] = useState({ name: "Rian Hidayat", remark: "", bypass: false });
+  const [approver4, setApprover4] = useState({ name: "Hendra Wijaya", remark: "", bypass: false });
 
   const getDestinationMessage = () => {
     if (approver1.bypass && approver2.bypass && approver3.bypass && approver4.bypass) {
@@ -74,9 +98,27 @@ export function CreatePR() {
   const [prCharge, setPrCharge] = useState("");
 
   // ── Section C: Items ───────────────────────────────────────
-  const [items, setItems] = useState<FormItem[]>([
-    { itemCode: "", name: "", supplierCode: "", supplierName: "", unit: "Units", price: 0, quantity: 1, remark: "" }
-  ]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newItem, setNewItem] = useState<FormItem>({
+    type: "CAPEX",
+    expenseNo: "",
+    rfiNo: "None",
+    faCode: "None",
+    rfiNoNonEfam: "",
+    faCodeNonEfam: "",
+    itemCode: "",
+    name: "",
+    supplierCode: "",
+    supplierName: "",
+    dueDate: "",
+    unit: "Units",
+    price: 0,
+    quantity: 1,
+    remark: "",
+    repeatOrder: "NEW",
+    repeatOrderRemark: ""
+  });
+  const [items, setItems] = useState<FormItem[]>([]);
 
   // ── Section D: Attachments ─────────────────────────────────
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -92,28 +134,33 @@ export function CreatePR() {
   ];
 
   // ── Item management ────────────────────────────────────────
-  const handleAddItem = () => {
-    setItems([
-      ...items,
-      { itemCode: "", name: "", supplierCode: "", supplierName: "", unit: "Units", price: 0, quantity: 1, remark: "" }
-    ]);
-  };
-
   const handleRemoveItem = (index: number) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index));
-    }
+    setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleItemChange = (index: number, field: keyof FormItem, value: string | number) => {
-    const updated = [...items];
-    if (field === "quantity" || field === "price") {
-      (updated[index] as any)[field] = Number(value);
-    } else {
-      (updated[index] as any)[field] = value;
+  const handleSaveItem = () => {
+    if (!newItem.name.trim()) {
+      setErrorMsg("Item Name is required in the PR Detail.");
+      return;
     }
-    // Auto-fill supplierCode if empty on blur — handled via default value logic
-    setItems(updated);
+    if (newItem.price <= 0) {
+      setErrorMsg("Price must be greater than 0.");
+      return;
+    }
+    if (newItem.quantity <= 0) {
+      setErrorMsg("Quantity must be greater than 0.");
+      return;
+    }
+
+    const nextIndex = items.length + 1;
+    const finalItem: FormItem = {
+      ...newItem,
+      supplierCode: newItem.supplierCode.trim() || `AUTO-${nextIndex}`
+    };
+
+    setItems([...items, finalItem]);
+    setIsModalOpen(false);
+    setErrorMsg("");
   };
 
   // ── Attachment upload simulation ───────────────────────────
@@ -174,6 +221,19 @@ export function CreatePR() {
       quantity: item.quantity,
       unit: item.unit,
       price: item.price,
+      type: item.type,
+      expenseNo: item.expenseNo,
+      rfiNo: item.rfiNo,
+      faCode: item.faCode,
+      rfiNoNonEfam: item.rfiNoNonEfam,
+      faCodeNonEfam: item.faCodeNonEfam,
+      itemCode: item.itemCode,
+      supplierCode: item.supplierCode,
+      supplierName: item.supplierName,
+      dueDate: item.dueDate,
+      remark: item.remark,
+      repeatOrder: item.repeatOrder,
+      repeatOrderRemark: item.repeatOrderRemark,
     }));
 
     createPR(
@@ -499,155 +559,414 @@ export function CreatePR() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleAddItem}
+                onClick={() => {
+                  setNewItem({
+                    type: "CAPEX",
+                    expenseNo: "",
+                    rfiNo: "None",
+                    faCode: "None",
+                    rfiNoNonEfam: "",
+                    faCodeNonEfam: "",
+                    itemCode: "",
+                    name: "",
+                    supplierCode: "",
+                    supplierName: "",
+                    dueDate: "",
+                    unit: "Units",
+                    price: 0,
+                    quantity: 1,
+                    remark: "",
+                    repeatOrder: "NEW",
+                    repeatOrderRemark: "",
+                  });
+                  setIsModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 text-xs cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{t("pr.item.add")}</span>
               </Button>
             </div>
-            <div className="p-6 space-y-4">
-              {items.map((item, index) => (
-                <div key={index} className="p-4 rounded-xl border border-border bg-muted/20 space-y-4">
-                  {/* Row header */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
-                      Item #{index + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(index)}
-                      disabled={items.length === 1}
-                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+            
+            <div className="p-6">
+              {items.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-xl">
+                  {t("pr.item.no_items")}
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-border rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-border bg-sidebar/20 text-muted-foreground font-bold">
+                        <th className="py-2.5 px-4 whitespace-nowrap">#</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.field.item_code")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap">Type</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.item.name")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.field.supplier_code")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.field.supplier_name")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap text-center">U M</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap text-right">{t("pr.item.price")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap text-center">{t("pr.item.qty")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap text-right">{t("pr.field.amount")}</th>
+                        <th className="py-2.5 px-4 whitespace-nowrap">Remark</th>
+                        <th className="py-2.5 px-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border text-foreground">
+                      {items.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-muted/10">
+                          <td className="py-2.5 px-4 text-muted-foreground">{idx + 1}</td>
+                          <td className="py-2.5 px-4 font-mono">{item.itemCode || "—"}</td>
+                          <td className="py-2.5 px-4 font-mono text-muted-foreground">{item.type}</td>
+                          <td className="py-2.5 px-4 font-medium max-w-[160px] truncate">{item.name}</td>
+                          <td className="py-2.5 px-4 font-mono text-muted-foreground">{resolvedSupplierCode(item, idx)}</td>
+                          <td className="py-2.5 px-4">{item.supplierName || "—"}</td>
+                          <td className="py-2.5 px-4 text-center text-muted-foreground">{item.unit}</td>
+                          <td className="py-2.5 px-4 text-right">${item.price.toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-center">{item.quantity}</td>
+                          <td className="py-2.5 px-4 text-right font-semibold">${(item.price * item.quantity).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-muted-foreground max-w-[100px] truncate">{item.remark || "—"}</td>
+                          <td className="py-2.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-sidebar/10 font-bold border-t-2 border-border">
+                        <td colSpan={9} className="py-3 px-4 text-right text-muted-foreground">
+                          {t("pr.grand.total")}:
+                        </td>
+                        <td className="py-3 px-4 text-right text-primary text-sm">${grandTotal.toLocaleString()}</td>
+                        <td colSpan={2} />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Dialog for Add PR Detail */}
+            <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if (!open) setErrorMsg(""); }}>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl">
+                <DialogHeader className="border-b border-border pb-4 mb-4">
+                  <DialogTitle className="text-lg font-bold text-foreground">Add PR Detail</DialogTitle>
+                </DialogHeader>
+
+                {errorMsg && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-center gap-2 text-xs mb-4">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                <div className="space-y-5">
+                  {/* Row 1: TYPE (dropdown, left) | EXPENSE NO (input with dropdown arrow, right) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Type
+                      </label>
+                      <select
+                        value={newItem.type}
+                        onChange={(e) => setNewItem({ ...newItem, type: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                      >
+                        <option value="CAPEX">CAPEX</option>
+                        <option value="OPEX">OPEX</option>
+                        <option value="INVENTORY">INVENTORY</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Expense No
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          list="expense-numbers"
+                          placeholder="Select or enter Expense No..."
+                          value={newItem.expenseNo}
+                          onChange={(e) => setNewItem({ ...newItem, expenseNo: e.target.value })}
+                          className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg pl-3 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                        />
+                        <datalist id="expense-numbers">
+                          <option value="EXP-2026-001" />
+                          <option value="EXP-2026-002" />
+                          <option value="EXP-2026-003" />
+                          <option value="EXP-2026-004" />
+                        </datalist>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Row 1: Item Code, Item Name, Supplier Code, Supplier Name */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="space-y-1.5">
+                  {/* Row 2: RFI NO (dropdown, left) | FA CODE (dropdown, middle) | RFI NO - NON EFAM (input, right) | FA CODE - NON EFAM (input, far right) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
                       <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.field.item_code")}
+                        RFI No
+                      </label>
+                      <select
+                        value={newItem.rfiNo}
+                        onChange={(e) => setNewItem({ ...newItem, rfiNo: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                      >
+                        <option value="None">None</option>
+                        <option value="RFI-2026-001">RFI-2026-001</option>
+                        <option value="RFI-2026-002">RFI-2026-002</option>
+                        <option value="RFI-2026-003">RFI-2026-003</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        FA Code
+                      </label>
+                      <select
+                        value={newItem.faCode}
+                        onChange={(e) => setNewItem({ ...newItem, faCode: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                      >
+                        <option value="None">None</option>
+                        <option value="FA-IT-001">FA-IT-001</option>
+                        <option value="FA-IT-002">FA-IT-002</option>
+                        <option value="FA-OFC-101">FA-OFC-101</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        RFI No - Non EFAM
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="RFI No..."
+                        value={newItem.rfiNoNonEfam}
+                        onChange={(e) => setNewItem({ ...newItem, rfiNoNonEfam: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        FA Code - Non EFAM
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="FA Code..."
+                        value={newItem.faCodeNonEfam}
+                        onChange={(e) => setNewItem({ ...newItem, faCodeNonEfam: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3: ITEM CODE (input, left) | ITEM NAME (input, right) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1 md:col-span-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Item Code
                       </label>
                       <input
                         type="text"
                         placeholder="e.g., ITM-001"
-                        value={item.itemCode}
-                        onChange={(e) => handleItemChange(index, "itemCode", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                        value={newItem.itemCode}
+                        onChange={(e) => setNewItem({ ...newItem, itemCode: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
                       />
                     </div>
-                    <div className="space-y-1.5">
+
+                    <div className="space-y-1 md:col-span-2">
                       <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.item.name")}
+                        Item Name
                       </label>
                       <input
                         type="text"
-                        placeholder={t("pr.item.placeholder")}
-                        value={item.name}
-                        onChange={(e) => handleItemChange(index, "name", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.field.supplier_code")}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={`AUTO-${index + 1}`}
-                        value={item.supplierCode}
-                        onChange={(e) => handleItemChange(index, "supplierCode", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.field.supplier_name")}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., PT Maju Sejahtera"
-                        value={item.supplierName}
-                        onChange={(e) => handleItemChange(index, "supplierName", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                        placeholder="Enter item name / specs..."
+                        value={newItem.name}
+                        onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
                       />
                     </div>
                   </div>
 
-                  {/* Row 2: Unit, Price, Quantity, Amount (read-only), Remark */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div className="space-y-1.5">
+                  {/* Row 4: SUPPLIER CODE (input, left, grayed/read-only) | SUPPLIER NAME (input, right) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1 md:col-span-1">
                       <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.item.unit")}
+                        Supplier Code
                       </label>
                       <input
                         type="text"
-                        value={item.unit}
-                        onChange={(e) => handleItemChange(index, "unit", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        value={`AUTO-${items.length + 1}`}
+                        readOnly
+                        disabled
+                        className="w-full bg-muted/60 dark:bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground cursor-not-allowed outline-none"
                       />
                     </div>
-                    <div className="space-y-1.5">
+
+                    <div className="space-y-1 md:col-span-2">
                       <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.item.price")}
+                        Supplier Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., PT Maju Sejahtera"
+                        value={newItem.supplierName}
+                        onChange={(e) => setNewItem({ ...newItem, supplierName: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 5: DUE DATE (date input, left) | U M (dropdown, middle) | PRICE (number input) | QTY (number input, auto-calc) | AMOUNT (number input, auto-calc read-only) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Due Date
+                      </label>
+                      <input
+                        type="date"
+                        value={newItem.dueDate}
+                        onChange={(e) => setNewItem({ ...newItem, dueDate: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        U M
+                      </label>
+                      <select
+                        value={newItem.unit}
+                        onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                      >
+                        <option value="Units">Units</option>
+                        <option value="Pcs">Pcs</option>
+                        <option value="Box">Box</option>
+                        <option value="Set">Set</option>
+                        <option value="Kg">Kg</option>
+                        <option value="Ltr">Ltr</option>
+                        <option value="Mtr">Mtr</option>
+                        <option value="Pack">Pack</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Price
                       </label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
-                        value={item.price || ""}
-                        onChange={(e) => handleItemChange(index, "price", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        value={newItem.price || ""}
+                        onChange={(e) => setNewItem({ ...newItem, price: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                       />
                     </div>
-                    <div className="space-y-1.5">
+
+                    <div className="space-y-1">
                       <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.item.qty")}
+                        Qty
                       </label>
                       <input
                         type="number"
                         min="1"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        placeholder="1"
+                        value={newItem.quantity || ""}
+                        onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                       />
                     </div>
-                    <div className="space-y-1.5">
+
+                    <div className="space-y-1">
                       <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.field.amount")}
-                      </label>
-                      <div className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground font-semibold">
-                        {(item.price * item.quantity).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                        {t("pr.field.remark")}
+                        Amount
                       </label>
                       <input
                         type="text"
-                        placeholder="Optional note..."
-                        value={item.remark}
-                        onChange={(e) => handleItemChange(index, "remark", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                        readOnly
+                        value={`$${(newItem.price * newItem.quantity).toLocaleString()}`}
+                        className="w-full bg-muted/60 dark:bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm text-foreground font-semibold cursor-not-allowed outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 6: REMARK (full-width textarea) */}
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                      Remark
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Optional remark..."
+                      value={newItem.remark}
+                      onChange={(e) => setNewItem({ ...newItem, remark: e.target.value })}
+                      className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Row 7: REPEAT ORDER (dropdown: NEW/REPEAT, left) | REPEAT ORDER REMARK (input, right) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1 md:col-span-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Repeat Order
+                      </label>
+                      <select
+                        value={newItem.repeatOrder}
+                        onChange={(e) => setNewItem({ ...newItem, repeatOrder: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                      >
+                        <option value="NEW">NEW</option>
+                        <option value="REPEAT">REPEAT</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Repeat Order Remark
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Repeat order details..."
+                        value={newItem.repeatOrderRemark}
+                        onChange={(e) => setNewItem({ ...newItem, repeatOrderRemark: e.target.value })}
+                        className="w-full bg-input-background dark:bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
                       />
                     </div>
                   </div>
                 </div>
-              ))}
 
-              {/* Grand total panel */}
-              <div className="p-4 bg-muted/40 border border-border rounded-xl flex justify-between items-center">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
-                  {t("pr.total.estimated")}
-                </span>
-                <span className="text-lg font-extrabold text-foreground">
-                  ${grandTotal.toLocaleString()}
-                </span>
-              </div>
-            </div>
+                <DialogFooter className="mt-6 flex flex-row justify-end gap-3 border-t border-border pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setErrorMsg("");
+                    }}
+                    className="bg-muted hover:bg-muted/80 text-foreground border-border cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveItem}
+                    className="bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer text-xs font-semibold px-4 py-2 rounded-lg"
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Section D: Upload Attachment */}
@@ -702,22 +1021,96 @@ export function CreatePR() {
             </div>
           </div>
 
-          {/* Section E: PR Approval */}
+          {/* Section E: PR Approval Collapsible Threshold Section */}
           <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-border bg-muted/30">
-              <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">
-                {t("pr.form.approval")}
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                <Send className="w-5 h-5 text-primary shrink-0" />
-                <p className="text-sm text-foreground">
-                  <span className="text-muted-foreground">{t("pr.approver.label")}</span>{" "}
-                  <span className="font-bold text-primary">{approverLevel}</span>
-                </p>
-              </div>
-            </div>
+            <Accordion type="single" collapsible defaultValue="item-1">
+              <AccordionItem value="item-1" className="border-none">
+                <AccordionTrigger className="px-6 py-4 bg-muted/30 hover:no-underline flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    <span className="font-bold text-sm text-foreground uppercase tracking-wider font-semibold">
+                      {t("pr.form.approval")} Thresholds
+                    </span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-6">
+                  <div className="space-y-4">
+                    {/* Information alert banner showing current PR total in USD and IDR */}
+                    <div className="p-3.5 bg-primary/5 border border-primary/10 rounded-xl text-xs flex justify-between items-center">
+                      <div>
+                        <span className="text-muted-foreground">Current Estimated Total: </span>
+                        <strong className="text-foreground">${grandTotal.toLocaleString()} USD</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">IDR Equivalent (1 USD = 15,000 IDR): </span>
+                        <strong className="text-primary font-bold">Rp {(grandTotal * 15000).toLocaleString()} IDR</strong>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto border border-border rounded-xl">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-sidebar/20 text-muted-foreground font-bold">
+                            <th className="py-2.5 px-4 text-center">Level</th>
+                            <th className="py-2.5 px-4">Approver Role</th>
+                            <th className="py-2.5 px-4 text-right">Min Amount (IDR)</th>
+                            <th className="py-2.5 px-4 text-right">Max Amount (IDR)</th>
+                            <th className="py-2.5 px-4">Approver Name</th>
+                            <th className="py-2.5 px-4 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border text-foreground">
+                          {[
+                            { level: 1, role: "Supervisor", min: 0, max: 5000000, maxText: "5,000,000", state: approver1, setState: setApprover1 },
+                            { level: 2, role: "Manager", min: 5000001, max: 25000000, maxText: "25,000,000", state: approver2, setState: setApprover2 },
+                            { level: 3, role: "Director", min: 25000001, max: 100000000, maxText: "100,000,000", state: approver3, setState: setApprover3 },
+                            { level: 4, role: "President Director", min: 100000001, max: Infinity, maxText: "unlimited", state: approver4, setState: setApprover4 },
+                          ].map((levelObj) => {
+                            const totalIDR = grandTotal * 15000;
+                            const isActive = totalIDR >= levelObj.min && totalIDR <= levelObj.max;
+
+                            return (
+                              <tr
+                                key={levelObj.level}
+                                className={`transition-colors duration-150 ${
+                                  isActive
+                                    ? "bg-blue-500/10 dark:bg-blue-500/5 font-semibold border-l-4 border-l-blue-500"
+                                    : "hover:bg-muted/10"
+                                }`}
+                              >
+                                <td className="py-3 px-4 text-center">{levelObj.level}</td>
+                                <td className="py-3 px-4">{levelObj.role}</td>
+                                <td className="py-3 px-4 text-right">Rp {levelObj.min.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right">
+                                  {levelObj.max === Infinity ? "unlimited" : `Rp ${levelObj.maxText}`}
+                                </td>
+                                <td className="py-2 px-4 min-w-[200px]">
+                                  <input
+                                    type="text"
+                                    value={levelObj.state.name}
+                                    onChange={(e) => levelObj.setState({ ...levelObj.state, name: e.target.value })}
+                                    className="bg-input-background dark:bg-muted/30 border border-border rounded-lg px-2.5 py-1 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors w-full"
+                                  />
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  {isActive ? (
+                                    <span className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block">
+                                      Active Level
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/40 text-[10px]">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
 
           {/* Step 1 Navigation */}
@@ -852,6 +1245,7 @@ export function CreatePR() {
                   <tr className="border-b border-border bg-sidebar/20 text-muted-foreground font-bold">
                     <th className="py-2.5 px-4 whitespace-nowrap">#</th>
                     <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.field.item_code")}</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Type</th>
                     <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.item.name")}</th>
                     <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.field.supplier_code")}</th>
                     <th className="py-2.5 px-4 whitespace-nowrap">{t("pr.field.supplier_name")}</th>
@@ -867,6 +1261,7 @@ export function CreatePR() {
                     <tr key={idx} className="hover:bg-muted/10">
                       <td className="py-2.5 px-4 text-muted-foreground">{idx + 1}</td>
                       <td className="py-2.5 px-4 font-mono">{item.itemCode || "—"}</td>
+                      <td className="py-2.5 px-4 font-mono text-muted-foreground">{item.type || "—"}</td>
                       <td className="py-2.5 px-4 font-medium max-w-[160px] truncate">{item.name}</td>
                       <td className="py-2.5 px-4 font-mono text-muted-foreground">{resolvedSupplierCode(item, idx)}</td>
                       <td className="py-2.5 px-4">{item.supplierName || "—"}</td>
@@ -878,7 +1273,7 @@ export function CreatePR() {
                     </tr>
                   ))}
                   <tr className="bg-sidebar/10 font-bold border-t-2 border-border">
-                    <td colSpan={8} className="py-3 px-4 text-right text-muted-foreground">
+                    <td colSpan={9} className="py-3 px-4 text-right text-muted-foreground">
                       {t("pr.grand.total")}:
                     </td>
                     <td className="py-3 px-4 text-right text-primary text-sm">${grandTotal.toLocaleString()}</td>
@@ -912,20 +1307,86 @@ export function CreatePR() {
 
           {/* Review: Approval */}
           <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-border bg-muted/30">
-              <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">
-                {t("pr.form.approval")}
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                <Send className="w-5 h-5 text-primary shrink-0" />
-                <p className="text-sm text-foreground">
-                  <span className="text-muted-foreground">{t("pr.approver.label")}</span>{" "}
-                  <span className="font-bold text-primary">{approverLevel}</span>
-                </p>
-              </div>
-            </div>
+            <Accordion type="single" collapsible defaultValue="item-2">
+              <AccordionItem value="item-2" className="border-none">
+                <AccordionTrigger className="px-6 py-4 bg-muted/30 hover:no-underline flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    <span className="font-bold text-sm text-foreground uppercase tracking-wider font-semibold">
+                      PR Approval Routing
+                    </span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="p-3.5 bg-primary/5 border border-primary/10 rounded-xl text-xs flex justify-between items-center">
+                      <div>
+                        <span className="text-muted-foreground">Estimated Requisition Value: </span>
+                        <strong className="text-foreground">${grandTotal.toLocaleString()} USD</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">IDR Threshold Amount: </span>
+                        <strong className="text-primary font-bold">Rp {(grandTotal * 15000).toLocaleString()} IDR</strong>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto border border-border rounded-xl">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-sidebar/20 text-muted-foreground font-bold">
+                            <th className="py-2.5 px-4 text-center">Level</th>
+                            <th className="py-2.5 px-4">Approver Role</th>
+                            <th className="py-2.5 px-4 text-right">Min Amount (IDR)</th>
+                            <th className="py-2.5 px-4 text-right">Max Amount (IDR)</th>
+                            <th className="py-2.5 px-4">Approver Name</th>
+                            <th className="py-2.5 px-4 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border text-foreground">
+                          {[
+                            { level: 1, role: "Supervisor", min: 0, max: 5000000, maxText: "5,000,000", state: approver1 },
+                            { level: 2, role: "Manager", min: 5000001, max: 25000000, maxText: "25,000,000", state: approver2 },
+                            { level: 3, role: "Director", min: 25000001, max: 100000000, maxText: "100,000,000", state: approver3 },
+                            { level: 4, role: "President Director", min: 100000001, max: Infinity, maxText: "unlimited", state: approver4 },
+                          ].map((levelObj) => {
+                            const totalIDR = grandTotal * 15000;
+                            const isActive = totalIDR >= levelObj.min && totalIDR <= levelObj.max;
+
+                            return (
+                              <tr
+                                key={levelObj.level}
+                                className={`transition-colors duration-150 ${
+                                  isActive
+                                    ? "bg-blue-500/10 dark:bg-blue-500/5 font-semibold border-l-4 border-l-blue-500"
+                                    : "hover:bg-muted/10 text-muted-foreground/80"
+                                }`}
+                              >
+                                <td className="py-3 px-4 text-center">{levelObj.level}</td>
+                                <td className="py-3 px-4">{levelObj.role}</td>
+                                <td className="py-3 px-4 text-right">Rp {levelObj.min.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right">
+                                  {levelObj.max === Infinity ? "unlimited" : `Rp ${levelObj.maxText}`}
+                                </td>
+                                <td className="py-3 px-4 font-medium">{levelObj.state.name || "(Empty)"}</td>
+                                <td className="py-3 px-4 text-center">
+                                  {isActive ? (
+                                    <span className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block">
+                                      Active Level
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/40 text-[10px]">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
 
           {/* Step 2 Navigation */}

@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { Theme } from "../../types";
-import { STORAGE_KEYS, DEFAULT_THEME } from "../../constants";
+import { STORAGE_KEYS } from "../../constants";
 
 interface ThemeContextType {
   theme: Theme;
@@ -17,11 +17,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    if (saved === "light" || saved === "dark") return saved;
-    return DEFAULT_THEME;
-  });
+  const [theme, setThemeState] = useState<Theme>("light");
 
   useEffect(() => {
     const root = window.document.documentElement;

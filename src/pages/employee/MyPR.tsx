@@ -13,7 +13,9 @@ import {
   Calendar,
   X,
   FileSpreadsheet,
-  SlidersHorizontal
+  SlidersHorizontal,
+  FileText,
+  Printer
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
@@ -23,7 +25,15 @@ import {
   SheetTitle,
   SheetFooter,
 } from "../../components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../components/ui/dialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
+import logo from "../../logo.png";
 
 // Advanced filter state shape
 interface AdvancedFilters {
@@ -72,6 +82,7 @@ export function MyPR() {
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [priorityFilter, setPriorityFilter] = useState<string>("All");
   const [selectedPR, setSelectedPR] = useState<PurchaseRequest | null>(null);
+  const [pdfPR, setPdfPR] = useState<PurchaseRequest | null>(null);
 
   // Advanced Search drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -386,6 +397,15 @@ export function MyPR() {
                         >
                           <Eye className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPdfPR(pr)}
+                          className="p-2 h-8 cursor-pointer hover:bg-muted"
+                          title="View PDF"
+                        >
+                          <FileText className="w-4 h-4 text-rose-500 hover:text-rose-600" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -430,7 +450,7 @@ export function MyPR() {
                       {t("mypr.submit_approval")}
                     </Button>
                   )}
-                  <Button
+                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setSelectedPR(pr)}
@@ -438,6 +458,15 @@ export function MyPR() {
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>{t("common.view")}</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPdfPR(pr)}
+                    className="text-xs h-8 cursor-pointer w-full flex items-center justify-center gap-1.5 border-rose-200 text-rose-500 hover:bg-rose-500/5 hover:text-rose-600"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>PDF</span>
                   </Button>
                 </div>
               </div>
@@ -848,6 +877,252 @@ export function MyPR() {
           </div>
         </div>
       )}
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={!!pdfPR} onOpenChange={(open) => { if (!open) setPdfPR(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-800 p-6 shadow-2xl rounded-2xl">
+          <DialogHeader className="border-b border-slate-800 pb-4 mb-4 flex flex-row items-center justify-between">
+            <DialogTitle className="text-lg font-bold text-white">Purchase Requisition PDF Preview</DialogTitle>
+          </DialogHeader>
+
+          {pdfPR && (
+            <div className="space-y-6">
+              {/* Printable Area Sheet */}
+              <div 
+                id="pr-pdf-preview" 
+                className="bg-white text-slate-950 p-8 rounded-xl border border-slate-200 shadow-md font-sans text-xs max-w-3xl mx-auto space-y-6 leading-relaxed"
+              >
+                {/* PDF Header: Logo on left, title & details on right */}
+                <table className="w-full border-collapse">
+                  <tbody>
+                    <tr>
+                      <td className="w-1/2 align-middle">
+                        <img src={logo} alt="AIINA Logo" className="h-10 w-auto" />
+                        <div className="mt-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                          PT Alpha Innovatech Indonesia
+                        </div>
+                      </td>
+                      <td className="w-1/2 text-right align-top">
+                        <h1 className="text-base font-black text-slate-900 uppercase tracking-widest">
+                          Purchase Request
+                        </h1>
+                        <div className="mt-1 space-y-0.5 text-[10px] text-slate-600">
+                          <div><span className="font-bold">PR NO:</span> <span className="font-mono text-slate-900 font-bold">{pdfPR.id}</span></div>
+                          <div><span className="font-bold">Date Initiated:</span> {new Date(pdfPR.createdAt).toLocaleDateString()}</div>
+                          <div>
+                            <span className="font-bold">Status:</span> 
+                            <span className="font-bold uppercase ml-1 text-slate-900">{pdfPR.status}</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Requester Information block */}
+                <div className="border border-slate-300 rounded-lg p-4 bg-slate-50">
+                  <h3 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5 mb-2.5">
+                    Requester Information
+                  </h3>
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <tbody>
+                      <tr>
+                        <td className="py-1 pr-4 w-1/4"><span className="text-slate-500 font-bold uppercase text-[9px] block">Name</span><strong>{pdfPR.creator.name}</strong></td>
+                        <td className="py-1 pr-4 w-1/4"><span className="text-slate-500 font-bold uppercase text-[9px] block">Email</span><span className="font-medium text-slate-700">{pdfPR.creator.email}</span></td>
+                        <td className="py-1 pr-4 w-1/4"><span className="text-slate-500 font-bold uppercase text-[9px] block">BU Issuer</span><strong>{pdfPR.department}</strong></td>
+                        <td className="py-1 w-1/4">
+                          <span className="text-slate-500 font-bold uppercase text-[9px] block">BU Charged</span>
+                          <strong>{pdfPR.items[0]?.expenseNo || "Cost Center (Default)"}</strong>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Purpose Justification */}
+                <div className="border border-slate-300 rounded-lg p-4 bg-slate-50">
+                  <h3 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5 mb-2">
+                    Purpose & Justification
+                  </h3>
+                  <p className="text-[11px] text-slate-800 leading-relaxed font-medium italic">
+                    &ldquo;{pdfPR.purpose || "No justification provided."}&rdquo;
+                  </p>
+                </div>
+
+                {/* PR Detail table */}
+                <div className="space-y-1.5">
+                  <h3 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">
+                    Requested Items
+                  </h3>
+                  <table className="w-full border border-slate-300 border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-slate-100 font-bold text-slate-700 uppercase text-[9px] border-b border-slate-300">
+                        <th className="py-2 px-3 border border-slate-300 w-8 text-center">No</th>
+                        <th className="py-2 px-3 border border-slate-300">Item Code</th>
+                        <th className="py-2 px-3 border border-slate-300">Item Name</th>
+                        <th className="py-2 px-3 border border-slate-300">Supplier</th>
+                        <th className="py-2 px-3 border border-slate-300 text-center">UoM</th>
+                        <th className="py-2 px-3 border border-slate-300 text-center">Qty</th>
+                        <th className="py-2 px-3 border border-slate-300 text-right">Unit Price</th>
+                        <th className="py-2 px-3 border border-slate-300 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pdfPR.items.map((item, idx) => (
+                        <tr key={item.id || idx} className="border-b border-slate-200">
+                          <td className="py-2 px-3 border border-slate-300 text-center">{idx + 1}</td>
+                          <td className="py-2 px-3 border border-slate-300 font-mono text-slate-700">{item.itemCode || "—"}</td>
+                          <td className="py-2 px-3 border border-slate-300 font-medium">{item.name}</td>
+                          <td className="py-2 px-3 border border-slate-300">{item.supplierName || "—"}</td>
+                          <td className="py-2 px-3 border border-slate-300 text-center text-slate-600">{item.unit}</td>
+                          <td className="py-2 px-3 border border-slate-300 text-center font-bold text-slate-900">{item.quantity}</td>
+                          <td className="py-2 px-3 border border-slate-300 text-right">${item.price.toLocaleString()}</td>
+                          <td className="py-2 px-3 border border-slate-300 text-right font-bold text-slate-900">${(item.price * item.quantity).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-50 font-bold border-t border-slate-300">
+                        <td colSpan={7} className="py-2.5 px-3 border border-slate-300 text-right text-slate-600">
+                          Grand Total (USD):
+                        </td>
+                        <td className="py-2.5 px-3 border border-slate-300 text-right text-slate-900 font-extrabold text-xs">
+                          ${pdfPR.items.reduce((sum, item) => sum + item.quantity * item.price, 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* PR Attachment section */}
+                <div className="border border-slate-300 rounded-lg p-4 bg-slate-50">
+                  <h3 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5 mb-2">
+                    Supporting Attachments
+                  </h3>
+                  {pdfPR.attachments.length === 0 ? (
+                    <span className="text-[10px] text-slate-400 italic">No attachments uploaded.</span>
+                  ) : (
+                    <div className="flex gap-2 flex-wrap">
+                      {pdfPR.attachments.map((file, i) => (
+                        <span key={i} className="bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-medium text-slate-700">
+                          {file}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* PR Approval section */}
+                <div className="space-y-2">
+                  <h3 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">
+                    PR Approval Signatures
+                  </h3>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { level: 1, role: "Supervisor", name: pdfPR.approvalFlow?.[0]?.name || "Budi Santoso", bypass: pdfPR.approvalFlow?.[0]?.bypass },
+                      { level: 2, role: "Manager", name: pdfPR.approvalFlow?.[1]?.name || "Sarah Approver", bypass: pdfPR.approvalFlow?.[1]?.bypass },
+                      { level: 3, role: "Director", name: pdfPR.approvalFlow?.[2]?.name || "Rian Hidayat", bypass: pdfPR.approvalFlow?.[2]?.bypass },
+                      { level: 4, role: "President Director", name: pdfPR.approvalFlow?.[3]?.name || "Hendra Wijaya", bypass: pdfPR.approvalFlow?.[3]?.bypass },
+                    ].map((app) => {
+                      const isApproved = ["Approved", "PO Released", "Completed"].includes(pdfPR.status);
+                      const totalIDR = pdfPR.items.reduce((s, it) => s + it.quantity * it.price, 0) * 15000;
+                      
+                      const requiredLevel = 
+                        totalIDR <= 5000000 ? 1 :
+                        totalIDR <= 25000000 ? 2 :
+                        totalIDR <= 100000000 ? 3 : 4;
+                      
+                      const isBypassed = app.bypass || app.level > requiredLevel;
+
+                      return (
+                        <div key={app.level} className="border border-slate-300 rounded-lg p-2.5 text-center flex flex-col justify-between bg-white min-h-[110px]">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">
+                            {app.role}
+                          </span>
+                          <div className="my-2 h-10 flex items-center justify-center border-y border-dashed border-slate-100">
+                            {isBypassed ? (
+                              <span className="text-[9px] text-slate-400 italic uppercase">Bypassed</span>
+                            ) : isApproved ? (
+                              <span className="text-emerald-600 font-extrabold text-[10px] rotate-[-5deg] border border-emerald-600 px-1 py-0.5 rounded uppercase select-none">
+                                Approved
+                              </span>
+                            ) : pdfPR.status === "Draft" ? (
+                              <span className="text-slate-300 italic text-[9px] lowercase">draft</span>
+                            ) : app.level === requiredLevel ? (
+                              <span className="text-amber-500 font-extrabold text-[10px] rotate-[-5deg] border border-amber-500 px-1 py-0.5 rounded uppercase select-none">
+                                Pending
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 italic text-[9px]">—</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-semibold text-slate-700 block truncate leading-none">
+                            {app.name || "N/A"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* PDF Footer */}
+                <div className="border-t border-slate-200 pt-3 flex justify-between items-center text-[9px] text-slate-400 uppercase tracking-wider">
+                  <div>PT Alpha Innovatech Indonesia • Corporate e-Purchasing</div>
+                  <div>Generated: {new Date().toLocaleString()}</div>
+                </div>
+              </div>
+
+              {/* Action Buttons in Modal */}
+              <DialogFooter className="mt-6 gap-2 border-t border-slate-800 pt-4 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setPdfPR(null)}
+                  className="bg-transparent hover:bg-white/10 text-white border-slate-700 cursor-pointer text-xs"
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const printContent = document.getElementById("pr-pdf-preview");
+                    if (!printContent) return;
+                    const printWindow = window.open("", "_blank");
+                    if (!printWindow) return;
+                    printWindow.document.write(`
+                      <html>
+                        <head>
+                          <title>PR-${pdfPR.id}</title>
+                          <script src="https://cdn.tailwindcss.com"></script>
+                          <style>
+                            body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 24px; color: #0f172a; background: #fff; }
+                            @media print {
+                              body { padding: 0; }
+                            }
+                          </style>
+                        </head>
+                        <body>
+                          <div class="max-w-3xl mx-auto">
+                            ${printContent.innerHTML}
+                          </div>
+                          <script>
+                            window.onload = function() {
+                              window.print();
+                              window.onafterprint = function() { window.close(); };
+                            }
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white border-none cursor-pointer text-xs font-semibold flex items-center gap-1.5 px-4 py-2 rounded-lg"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print / Download PDF</span>
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
